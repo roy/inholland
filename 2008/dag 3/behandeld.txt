@@ -1,0 +1,4 @@
+STEP 1: Basic item; Model 
+STEP 2: Listing items; View and Controller 
+STEP 3: Helpers; h, number_to_currency, Helper modules
+STEP 4: Scaffold items; routing and params 

@@ -1,0 +1,8 @@
+#header { border-bottom: solid black 2px; }
+#login { float: right; }
+#content { margin: 10px; }
+#footer { border-top: solid black 2px; }
+#flash-notice {
+  font-size: 125%;
+  font-style: italic;
+}

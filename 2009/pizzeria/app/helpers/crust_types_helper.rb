@@ -1,0 +1,2 @@
+module CrustTypesHelper
+end

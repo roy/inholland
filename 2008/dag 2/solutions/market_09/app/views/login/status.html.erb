@@ -1,0 +1,7 @@
+<% if current_user %>
+  Current user:
+  <%=h current_user.firstname %>
+  <%=h current_user.lastname %>
+<% else %>
+  Nobody logged in.
+<% end %>

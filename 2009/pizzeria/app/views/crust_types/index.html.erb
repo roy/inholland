@@ -1,0 +1,20 @@
+<h1>Listing crust_types</h1>
+
+<table>
+  <tr>
+    <th>Title</th>
+  </tr>
+
+<% @crust_types.each do |crust_type| %>
+  <tr>
+    <td><%=h crust_type.title %></td>
+    <td><%= link_to 'Show', crust_type %></td>
+    <td><%= link_to 'Edit', edit_crust_type_path(crust_type) %></td>
+    <td><%= link_to 'Destroy', crust_type, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New crust_type', new_crust_type_path %>

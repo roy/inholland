@@ -1,0 +1,31 @@
+<html>
+  <head>
+    <title>Market</title>
+		<%= stylesheet_link_tag "market" %>
+  </head>
+  <body>
+		<div id="login">
+		  <% if current_user %>
+		    Hello <%=h current_user.firstname %>!
+		    <%= link_to 'Logout', :controller => 'login', :action => 'logout' %> |
+				<%= link_to "New item", new_item_path %>
+		  <% else %>
+		    <%= link_to 'Login', :controller => 'login' %>
+
+		  <% end %>
+		</div> 
+   	<div id="header">
+      <h1><%= link_to 'Market', :controller => 'welcome' %></h1>
+    </div>
+
+    <div id="content">
+			<% if flash[:notice] %>
+			  <div id="flash-notice"><%=h flash[:notice] %></div>
+			<% end %>
+      <%= yield %>
+    </div>
+    <div id="footer">
+      pre-alpha-version
+    </div>
+  </body>
+</html>

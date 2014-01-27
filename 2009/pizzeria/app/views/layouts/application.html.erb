@@ -1,0 +1,27 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+	<head>
+	  <title>InHolland's Pizzeria</title>
+    <%= stylesheet_link_tag "application" %>
+	</head>
+  <body>
+    <div id="header">
+      <div id="header_title">InHolland's Pizzeria</div>
+      <div class="nav">
+        <ul>
+          <li><%= link_to "Pizzas", pizzas_path %></li>
+          <li><%= link_to "Crust Types", crust_types_path %></li>
+          <li><%= link_to "Toppings", toppings_path %></li>
+        </ul>
+      </div>
+    </div>
+    <div id="content">
+      <%= yield %>
+    </div>
+    <div id="footer">
+      pre-alpha-version
+    </div>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+<h1>Editing crust_type</h1>
+
+<% form_for(@crust_type) do |f| %>
+  <%= f.error_messages %>
+
+  <p>
+    <%= f.label :title %><br />
+    <%= f.text_field :title %>
+  </p>
+  <p>
+    <%= f.submit 'Update' %>
+  </p>
+<% end %>
+
+<%= link_to 'Show', @crust_type %> |
+<%= link_to 'Back', crust_types_path %>

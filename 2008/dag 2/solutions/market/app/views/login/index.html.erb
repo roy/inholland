@@ -1,0 +1,14 @@
+<h2>Login</h2>
+<%= form_tag :action => 'login' %>
+  <p>
+    <label>E-Mail</label>
+    <%= text_field_tag :email, params[:email] %>
+  </p>
+  <p>
+    <label>Password</label>
+    <%= password_field_tag :password, '' %>
+  </p>
+  <p>
+    <%= submit_tag 'Login' %>
+  </p>
+</form>

@@ -1,0 +1,494 @@
+STEP 1: Basic item; Model (20 minutes) and magic fields
+  $ rails market
+  $ cd market
+  $ rake db:create:all
+  $ ./script/generate model Item title:string description:text
+  $ vim db/migrate/*_create_items.rb  # :null => false
+  $ rake db:migrate
+  $ ./script/console
+  >> item = Item.new
+  >> item.title = 'Car'
+  >> item.description = 'Bright red and very fast!'
+  >> item.id
+  => nil
+  >> item.save
+  => true
+  >> item.id
+  => 1
+  >> Item.count
+  => 1
+  >> Item.find(1)
+  => #<Item...
+  >> Item.create(:title => 'Bicycle', :description => 'Only 1 year old, 24 gears!')
+  => #<Item...
+  >> Item.count
+  => 2
+  >> Item.find(:all)
+  => [#<Item..., #<Item...]
+  >> Item.find(:all, :conditions => "description LIKE '%fast%'")
+  => [#<Item...]
+  $ ./script/dbconsole
+  > select * from items;
+  1..
+  2..
+
+
+  ASSIGNMENT (15 minutes):
+    Implement current_price method on Item which returns number
+    characters in title and description.  So more fluff means higher
+    price.  Don't worry about cents.  Hint: size or length method gives
+    number of characters in a string.
+
+  $ ruby script/console
+  >> Item.all.each { |item| puts "#{item.title}: #{item.current_price} euros" }; nil
+  Bicycle: 33 euros
+  Car: 28 euros
+  => nil
+
+
+
+STEP 2: Listing items; View and Controller (15 minutes)
+  $ ./script/generate controller welcome index
+  $ ./script/server &
+  $ open http://localhost:3000
+  $ open http://localhost:3000/welcome
+  $ vi app/views/welcome/index.html.erb
+  + <ul>
+  +   <% Item.find(:all).each do |item| %>
+  +     <li>
+  +       <%= item.title %>
+  +     </li>
+  +   <% end %>
+  + </ul>
+  $ open http://localhost:3000/welcome
+  $ vi app/controllers/welcome_controller.rb
+  + def index
+  +   @items = Item.all # or Item.find(:all)
+  + end
+  $ vi app/views/welcome/index.html.erb
+  + <ul>
+  +   <% @items.each do |item| %>
+  +     <li>
+  +       <%= item.title %>
+  +     </li>
+  +   <% end %>
+  + </ul>
+  $ open http://localhost:3000/welcome
+
+
+  ASSIGNMENT (10 minutes):
+    Only show the three most recently added (hint :limit and :order).
+
+
+
+STEP 3: Helpers; h, number_to_currency, Helper modules
+  $ ./script/console
+  >> Item.find(1).update_attribute(:title, '<span style="font-size:200%;background:red">Car</span>')
+  $ open http://localhost:3000/welcome
+  $ vi app/views/welcome/index.html.erb
+  + <%= h(item.title) %>
+  $ open http://localhost:3000/welcome
+  $ vi app/views/welcome/index.html.erb
+  - <%= h(item.title) %>
+  + <%= h(truncate(item.title)) %>
+  $ open http://localhost:3000/welcome
+  $ vi app/views/welcome/index.html.erb
+  + <%= number_to_currency(item.current_price) %>
+  $ open http://localhost:3000/welcome
+  $ vi app/views/welcome/index.html.erb
+  - <%= number_to_currency(item.current_price) %>
+  + <%= number_to_currency(item.current_price, :unit => '&euro;') %>
+  $ vi app/views/welcome/index.html.erb
+  + <% if item.created_at > 10.minutes.ago %>
+  +   <strong>NEW!</strong>
+  + <% end %>
+  $ open http://localhost:3000/welcome
+  $ ./script/console
+	>> Item.find(1).update_attribute(:title, 'Car')
+  >> Item.create(:title => 'Book', :description => 'Excellent plot!')
+  $ open http://localhost:3000/welcome
+  $ vi app/helpers/welcome_helper.rb
+  + def item_title(item)
+  +   ret = ""
+  +   ret = '<strong>NEW!</strong>' if item.created_at > 10.minutes.ago
+  +   ret += h(truncate(item.title))
+  +   ret
+  + end
+  $ vi app/views/welcome/index.html.erb
+  - <%= h(truncate(item.title)) %>
+  + <%= item_title(item) %>
+  - <% if item.created_at > 5.minutes.ago %>
+  -   <strong>NEW!</strong>
+  - <% end %>
+  $ open http://localhost:3000/welcome
+  
+  
+  ASSIGNMENT:
+    Make a currency method in ApplicationHelper which use number_to_currency to make a euro amount and use it.
+
+
+
+STEP 4: Scaffold items; routing and params (20 minutes)
+  $ ./script/generate scaffold item title:string description:text
+  $ open http://localhost:3000/items
+	+ <th>Title</th>
+	+ <th>Description</th>
+	+ <td><%= item.title %></td>
+	+ <td><%= item.description %></td>
+  $ more app/controllers/items_controller.rb
+  $ more config/routes.rb
+
+
+  ASSIGNMENT (10 minutes):
+    Add a show action to the welcome controller to show item details.
+    Make the titles in the welcome index page links to these show
+    actions.  Hint: ItemsController showcases a lot of Rails.
+
+
+
+STEP 5: Item field validations (5 minutes)
+  $ vi app/models/item.rb
+  > validates_presence_of :title
+  $ open http://localhost:3000/items/new
+
+
+  ASSIGNMENT (10 minutes):
+    Ensure the item description is present and can't be longer than 200 characters.
+  
+  
+
+STEP 6: Item ownership; associations
+  $ ./script/generate model person email:string firstname:string lastname:string password_hash:string
+  $ vi db/migrate/002_create_people.rb
+	$ script/generate migration add_person_id_to_items person_id:integer
+  $ rake db:migrate
+  $ vi app/models/item.rb
+  + belongs_to :person
+  $ ./script/console
+  >> larry = Person.create(:email => 'larry@wall.net', :firstname => 'Larry', :lastname => 'Wall')
+  => #<Person...
+  >> book = Item.find_by_title('Book')
+  => #<Item...
+  >> book.person
+  => nil
+  >> book.person = larry
+  => #<Person...
+  >> book.save
+  => true
+  >> larry.items
+  NoMethodError: undefined method 'items' for #<Person...
+  $ vi app/models/person.rb
+  + has_many :items
+  + validates_presence_of :email
+  + validates_uniqueness_of :email
+  $ ./script/console
+  >> larry = Person.find_by_firstname('Larry')
+  => #<Person...
+  >> larry.items
+  [#<Item...]
+
+
+  ASSIGNMENT: (20 minutes)
+    Give people an associated address (street, city, country).  Hint person.has_one and address.belongs_to.
+
+
+
+STEP 7: Login; class methods, sessions
+  $ vi app/models/person.rb
+  + def password=(password)
+  +   self.password_hash = Digest::MD5.hexdigest(password)
+  + end
+  $ ./script/console 
+  >> larry = Person.find_by_firstname('Larry')
+  => #<Person...
+  >> larry.update_attribute(:password, 'I love Ruby')
+  => true
+  >> larry.password_hash
+  => "889047e460ab18b50598a777527008ad"
+  $ vi app/models/person.rb
+  + def self.authenticate(email, password)
+  +   find(:first, :conditions => {:email => email, :password_hash => Digest::MD5.hexdigest(password)})
+  + end
+  $ ./script/console
+  >> Person.authenticate('larry@wall.net', 'Perl rules!')
+  => nil
+  >> Person.authenticate('larry@wall.net', 'I love Ruby')
+  => #<Person...
+  $ ./script/generate controller login index
+  $ vi app/views/login/index.html.erb
+  + <h2>Login</h2>
+  + <%= form_tag :action => 'login' %>
+  +   <p>
+  +     <label>E-Mail</label>
+  +     <%= text_field_tag :email, params[:email] %>
+  +   </p>
+  +   <p>
+  +     <label>Password</label>
+  +     <%= password_field_tag :password, '' %>
+  +   </p>
+  +   <p>
+  +     <%= submit_tag 'Login' %>
+  +   </p>
+  + </form>
+  $ open http://localhost:3000/login
+  $ vi app/controllers/login_controller.rb
+  + def login
+  +   if person = Person.authenticate(params[:email], params[:password])
+  +     session[:login] = person.id
+  +     redirect_to :controller => 'welcome'
+  +   else
+  +     render :action => 'index'
+  +   end
+  + end
+  $ vi app/controllers/login_controller.rb
+  + protected
+  +   def current_user
+  +     session[:login] && Person.find(session[:login])
+  +   end
+  +   helper_method :current_user
+  $ vi app/views/login/status.html.erb
+  + <% if current_user %>
+  +   Current user:
+  +   <%=h current_user.firstname %>
+  +   <%=h current_user.lastname %>
+  + <% else %>
+  +   Nobody logged in.
+  + <% end %>
+  $ open http://localhost:3000/login/status
+  
+
+  ASSIGNMENT: (10 minutes)
+    Implement logout.
+
+
+
+STEP 8: More logging in; layouts, assets, application.rb, filters
+  $ open http://localhost:3000/welcome
+  $ vi app/views/layouts/application.html.erb
+  + <html>
+  +   <head>
+  +     <title>Market</title>
+  +   </head>
+  +   <body>
+  +     <div id="header">
+  +       <h1><%= link_to 'Market', :controller => 'welcome' %></h1>
+  +     </div>
+  +     <div id="content">
+  +       <%= yield %>
+  +     </div>
+  +     <div id="footer">
+  +       pre-alpha-version
+  +     </div>
+  +   </body>
+  + </html>
+  $ open http://localhost:3000/welcome
+  $ vi app/controllers/application.rb
+  + protected
+  +   def current_user
+  +     session[:login] && Person.find(session[:login])
+  +   end
+  +   helper_method :current_user
+  $ vi app/controllers/login_controller.rb
+  - protected
+  -   def current_user
+  -     session[:login] && Person.find(session[:login])
+  -   end
+  -   helper_method :current_user
+  $ vi app/views/layouts/application.html.erb
+  + <div id="login">
+  +   <% if current_user %>
+  +     Hello <%=h current_user.firstname %>!
+  +     <%= link_to 'Logout', :controller => 'login', :action => 'logout' %>
+  +   <% else %>
+  +     <%= link_to 'Login', :controller => 'login' %>
+  +   <% end %>
+  + </div>
+  $ open http://localhost:3000/welcome
+  $ vi app/views/layouts/application.html.erb
+  + <%= stylesheet_link_tag 'market' %>
+  $ curl http://localhost:3000/welcome
+  $ vi public/stylesheets/market.css
+  + #header { border-bottom: solid black 2px; }
+  + #login { float: right; }
+  + #content { margin: 10px; }
+  + #footer { border-top: solid black 2px; }
+  
+  
+  ASSIGNMENT: (10 minutes)
+    Add a link to items controller to create a new item in the layout
+    for logged in users.  Replace the items layout with application
+    layout by removing it.
+
+
+STEP 9: Bidding; association methods
+  $ ./script/generate model Bid item_id:integer person_id:integer amount:integer
+  $ rake db:migrate
+  $ vi app/models/bid.rb
+  + belongs_to :item
+  + belongs_to :person
+  + validates_presence_of :item, :person, :amount
+  $ vi app/models/item.rb
+  + has_many :bids
+  $ ./script/console
+  >> book = Item.find_by_title('Book')
+  => #<Item...
+  >> larry = Person.find_by_firstname('Larry')
+  => #<Person...
+  >> Bid.create(:person => larry, :item => book, :amount => 10)
+  => #<Bid...
+  >> book.bids
+  => [#<Bid...]
+  >> randal = Person.create(:email => 'randal@schwartz.net', :firstname => 'Randal', :lastname => 'Schwartz')
+  => #<Person...
+  >> Bid.create(:person => randal, :item => book, :amount => 20)
+  => #<Bid..
+  >> Bid.maximum(:amount, :conditions => {:item_id => book.id})
+  => 20
+	$ vi app/models/bid.rb
+	+ def self.highest
+  +  find(:first, :order => 'amount DESC')
+  + end
+  - (title + description).size
+  + b = bids.highest
+  + b ? b.amount : 0
+  $ open http://localhost:3000/welcome
+  $ ./script/console
+  >> larry, randal = %w(Larry Randal).collect{|t| Person.find_by_firstname(t)}
+  => [#<Person..., #<Person...]
+  >> book = Item.find_by_title('Book')
+  => #<Item...
+  >> Bid.create(:person => larry, :item => book, :amount => 21)
+  => #<Bid...
+  $ open http://localhost:3000/welcome
+  >> Bid.create(:person => randal, :item => book, :amount => 9)
+  => #<Bid...
+  $ open http://localhost:3000/welcome
+  
+  
+  ASSIGNMENT: (20 minutes)
+    Create a bidding controller with one action: bid.  It takes two
+    parameters, the id of an item and the amount.  Put the form for
+    the bid on the welcome show page.  Only show the form when the
+    highest bit is not owned by the current user.  After taking a bid
+    it redirects back to the show page.
+
+
+
+STEP 10: ensure user is logged in; flash, flash.now
+  $ vi app/controllers/bidding_controller.rb
+  + before_filter :ensure_login
+  $ vi app/controllers/application.rb
+  + protected
+  + 	def ensure_login
+  + 	  unless current_user
+  + 	    flash[:notice] = 'You should login for this operation!'
+  + 	    redirect_to :controller => 'login'
+  + 	  end
+  + 	end
+  $ vi app/views/layouts/application.html.erb
+  + <% if flash[:notice] %>
+  +   <div id="flash-notice"><%=h flash[:notice] %></div>
+  + <% end %>
+  $ vi public/stylesheets/market.css
+  + #flash-notice {
+  +   font-size: 125%;
+  +   font-style: italic;
+  + }
+  $ open http://localhost:3000/login/logout
+  $ open http://localhost:3000/welcome
+  
+  
+  ASSIGNMENT: (20 minutes)
+    Ensure users are logged in for the actions in the items
+    controller.  Use flash in the login controller to welcome
+    the user when login succeeds.  Use flash.now when login
+    fails.
+
+
+
+STEP 11: routing
+  $ rm public/index.html
+  $ open http://localhost:3000/
+  $ vi config/routes.rb
+  + map.root :controller => "welcome"
+  $ open http://localhost:3000/
+  $ vi config/routes.rb
+  + map.connect 'show/:id', :controller => "welcome", :action => 'show'
+  $ open http://localhost:3000/show/1
+  - map.connect 'show/:id', :controller => "welcome", :action => 'show'
+  + map.connect ':id', :controller => "welcome", :action => 'show'
+  $ open http://localhost:3000/1
+  $ open http://localhost:3000/login
+  - map.connect ':id', :controller => "welcome", :action => 'show'
+  + map.connect ':id', :controller => "welcome", :action => 'show', :id => /\d+/
+  $ open http://localhost:3000/1
+  $ open http://localhost:3000/login
+  
+  
+  ASSIGNMENT (10 minutes)
+    Make a new route to allow http://localhost:3000/by_title/Car.
+    
+    
+STEP 12: ajax; form_remote_tag, javascript_include_tag, render-text, rjs and render-update
+  $ vi app/views/welcome/show.html.erb
+  - <%= form_tag :controller => 'bidding', :action => 'bid', :id => @item %>
+  + <%= form_remote_tag :url => {:controller => 'bidding', :action => 'bid', :id => @item} %>
+  $ open http://localhost:3000/1
+  $ vi app/views/layouts/application.html.erb
+  + <%= javascript_include_tag :defaults %>
+  $ curl http://localhost:3000/1
+  $ open http://localhost:3000/1
+  $ vi app/controllers/bidding_controller.rb
+  - redirect_to :controller => 'welcome', :action => 'show', :id => params[:id]
+  + respond_to do |format|
+  +   format.html do
+  +     redirect_to :controller => 'welcome', :action => 'show', :id => params[:id]
+  +   end
+  +   format.js do
+  +     render :text => "document.body.style.background = 'red'"
+  +   end
+  + end
+  $ open http://localhost:3000/1
+  $ vi app/views/welcome/show.html.erb
+  - Current price: <%= currency(@item.current_price) %>
+  + Current price: <span id="current-price"><%= currency(@item.current_price) %></span>
+  - <div class="bid">
+  + <div id="bid">
+  $ open http://localhost:3000/1
+  $ app/controllers/bidding_controller.rb
+  + @item = Item.find(params[:id])
+  ..
+  - format.js do
+  -   render :text => "document.body.style.background = 'red'"
+  - end
+  + format.js do
+  +   render :update do |page|
+  +     page['current-price'].innerHTML = currency(@item.current_price)
+  +     page['current-price'].visual_effect(:highlight)
+  +     page['bid'].hide
+  +   end
+  + end
+  $ open http://localhost:3000/1
+  $ app/controllers/bidding_controller.rb
+  - format.js do
+  -   render :update do |page|
+  -     page['current-price'].innerHTML = currency(@item.current_price)
+  -     page['current-price'].visual_effect(:highlight)
+  -     page['bid'].hide
+  -   end
+  - end
+  - format.js
+  $ vi app/views/bidding/bid.rjs
+  + page['current-price'].innerHTML = currency(@item.current_price)
+  + page['current-price'].visual_effect(:highlight)
+  + page['bid'].hide
+  + page << %q{alert('yelp!')}
+  $ open http://localhost:3000/1
+  $ vi app/views/bidding/bid.rjs
+  - page << %q{alert('yelp!')}
+  $ open http://localhost:3000/1
+  
+  
+  ASSIGNMENT:
+    Only remove bidding form if current user owner of the highest bid.  Otherwise
+    update the bidding amount in the form to current price plus 1.

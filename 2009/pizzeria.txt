@@ -1,0 +1,188 @@
+# genereer een nieuwe rails applicatie met het rails commando en geef de optie "-d mysql" mee om de applicatie met een mysql database te laten communiceren en ga vervolgens "in" de rails applicatie staan
+$ rails -d mysql pizzeria
+$ cd pizzeria
+
+# pas de database gegevens aan waar nodig:
+$ vi config/database.yml
+
+# Laat rails de benodigde databases creëren
+$ rake db:create
+
+# verwijder public/index.html zodat deze niet standaard door een webserver wordt vertoond.
+$ rm public/index.html
+
+# genereer een resource pizza met de volgende attributen title:string crusty:boolean
+$ script/generate scaffold pizza title:string crusty:boolean
+
+# migreer de database
+$ rake db:migrate
+
+# laat rails standaard naar de index kijken van PizzasController
+$ vi config/routes.rb
++ map.root :controller => "pizzas"
+- map.connect ':controller/:action/:id'
+- map.connect ':controller/:action/:id.:format'
+
+# verplaats de form content van de edit pagina van PizzasController in een partial en laad deze partial in edit en new in
+$ vi app/views/pizzas/edit.html.erb
+- <%= f.error_messages %>
+- 
+- <p>
+-   <%= f.label :title %><br />
+-   <%= f.text_field :title %>
+- </p>
+- <p>
+-   <%= f.label :crusty %><br />
+-   <%= f.check_box :crusty %>
+- </p>
+- <p>
+-   <%= f.submit 'Update' %>
+- </p>
++   <%= render :partial => "form", :locals => { :f => f } %>
+$ vi app/views/pizzas/new.html.erb
+- <%= f.error_messages %>
+- 
+- <p>
+-   <%= f.label :title %><br />
+-   <%= f.text_field :title %>
+- </p>
+- <p>
+-   <%= f.label :crusty %><br />
+-   <%= f.check_box :crusty %>
+- </p>
+- <p>
+-   <%= f.submit 'Update' %>
+- </p>
++   <%= render :partial => "form", :locals => { :f => f } %>
+$ vi app/views/pizza/_form.html.erb
++ <%= f.error_messages %>
++ 
++ <p>
++   <%= f.label :title %><br />
++   <%= f.text_field :title %>
++ </p>
++ <p>
++   <%= f.label :crusty %><br />
++   <%= f.check_box :crusty %>
++ </p>
++ <p>
++   <%= f.submit 'Update' %>
++ </p>
+
+
+## belongs to
+# creeer crust type
+$ script/generate scaffold crust_type title:string
+$ rake db:migrate
+
+# voeg crust types toe: Thin, Normal, Deep Dish, Low-Carb via de website
+$ script/console
+>> ["Thin", "Normal", "Deep Dish", "Low-Carb"].each do |cr|
+>>   CrustType.create(:title => cr)
+>> end
+
+# geef pizza's een extra kolom een crust type aan een te hangen
+$ script/generate migration add_crust_type_id_to_pizzas crust_type_id:integer
+$ vi db/migrate/timestamp_add_crust_type_id_to_pizzas.rb
+$ rake db:migrate
+
+# Geef aan rails de associaties door
+$ vi app/models/pizza.rb
++ belongs_to :crust_type
+
+$ vi app/models/crust_type.rb
++ has_many :pizzas
+
+# pas de partial aan voor het wijzigen van pizza's om ook daadwerkelijk de crust_type door te gen
+$ vi app/views/pizzas/_form.html.erb
++ <p>
++   <%= f.label :crust_type_id %><br />
++   <%= f.collection_select :crust_type_id, CrustType.all, :id, :title %>
++ </p>
+
+## has many through
+# creeer toppings
+$ script/generate scaffold topping title:string
+
+# creeer een tussen model voor toppings en pizzas zodat je kan aangeven welke toppings op een pizza moeten
+$ script/generate model pizza_topping pizza_id:integer topping_id:integer
+
+# (optioneel) creeer een index voor mysql op de pizza_toppings tabel, voor de database puristen
+$ vi db/migrate/timestamp_create_pizza_toppings.rb
++ add_index :pizza_toppings, [:pizza_id, :topping_id]
+
+# maak de connecties tussen de models pizza, pizza_topping, topping
+$ vi app/models/pizza.rb
++ has_many :pizza_toppings
++ has_maby :toppings, :through => :pizza_toppings
+
+$ vi app/models/pizza_topping.rb
++ belongs_to :pizza
++ belongs_to :topping
+
+$ vi app/models/topping.rb
++ has_many :pizza_toppings
++ has_many :pizzas, :through => :pizza_toppings
+
+# voeg wat toppings toe
+$ script/console
+>> Topping.create(:title => "Extra Cheese")
+>> Topping.create(:title => "Pepperoni")
+>> Topping.create(:title => "Pineapple")
+>> Topping.create(:title => "Mushrooms")
+
+# pas de partial aan voor het wijzigen van pizza's om de toppings toe te voegen
+$ vi app/views/pizzas/_form.html.erb
++ <h3>Toppings</h3>
++ <% Topping.all.each do |topping| %>
++   <%= check_box_tag 'pizza[topping_ids][]', topping.id, @pizza.toppings.include?(topping) %>
++   <%=h topping.title %><br />
++ <% end %>
+
+# zie dat wanneer je alle toppings er weer vanaf haalt, dat rails de toppings niet verwijdert!!!
+# dit komt omdat checkboxes alleen worden meegestuurd met de parameters als deze gevuld zijn. Simpele hack hiervoor is hetzelfde wat rails al standaard met checkboxes uitvoert (kijk maar naar de crispy checkbox in de html code)
+$ vi app/views/pizzas/_form.html.erb
++ <%= hidden_field_tag 'pizza[topping_ids][]' %>
+
+## layouts
+$ rm app/views/layouts/*
+$ vi app/views/layouts/application.html.erb
++ <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
++ 	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
++ 
++ <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
++ 	<head>
++ 	  <title>InHolland's Pizzeria</title>
++     <%= stylesheet_link_tag "application" %>
++ 	</head>
++   <body>
++     <div id="header">
++       <div id="header_title">InHolland's Pizzeria</div>
++       <div class="nav">
++         <ul>
++           <li><%= link_to "Pizzas", pizzas_path %></li>
++           <li><%= link_to "Crust Types", crust_types_path %></li>
++           <li><%= link_to "Toppings", toppings_path %></li>
++         </ul>
++       </div>
++     </div>
++     <div id="content">
++       <%= yield %>
++     </div>
++     <div id="footer">
++       pre-alpha-version
++     </div>
++   </body>
++ </html>
+
+$ vi public/stylesheets/application.css
++ body, ul, li 				{ margin: 0; padding: 0; }
++ body 								{ font-family: Verdana; font-size: 12px; background-color: #f5e7d0; letter-spacing: 0.04em; }
++ #header 						{ border-bottom: solid 1px #a1a1a1; padding: 10px; }
++ #header_title				{ font-size: 24px; color: #ffcb8d; text-shadow: #f00 2px 2px 0px;	font-weight: bold; }
++ .nav								{ margin-left: 20px; }
++ .nav ul li 					{ display: inline-block; }
++ .nav ul li a 				{ text-transform: uppercase; text-decoration: none; color: #222; padding-right: 10px; }
++ .nav ul li a:hover 	{ text-decoration: underline; }
++ #content 						{ padding: 10px 30px; background-color: white; }
++ #footer 						{ border-top: solid 1px #a1a1a1; text-align: center; }

@@ -1,0 +1,12 @@
+Title: <%= @item.title %><br />
+Description: 
+<p><%= @item.description %></p>
+
+<% if @item.bids.empty? || current_user != @item.bids.highest.person %>
+	<% form_for :bid, :url => {:controller => "bidding", :action => "bid"} do |f| %>
+	<%= f.hidden_field :item_id, :value => @item.id %>
+	Your bid:
+		<%= f.text_field :amount %>
+		<%= f.submit :submit %>
+	<% end %>
+<% end %>

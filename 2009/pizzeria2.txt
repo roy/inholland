@@ -1,0 +1,467 @@
+# STAP 1: Basic item; Model (20 minuten) en 'magic fields'
+  # genereer een nieuwe rails applicatie
+  $ rails pizzeria
+  $ cd pizzeria
+  # Laat rails de benodigde databases creeeren (production, development en test)
+  $ rake db:create:all
+
+  # genereer een model Pizza met de attributen title:string crusty:boolean
+  $ script/generate model Pizza title:string crusty:boolean
+  $ vim db/migrate/*_create_pizzas.rb 
+
+  # migreer de database
+  $ rake db:migrate
+  
+  # spelen met de Pizza model
+  $ script/console
+  >> pizza = Pizza.new
+  >> pizza.title = "4 cheese"
+  >> pizza.id
+  => nil
+  >> pizza.save
+  => true
+  >> pizza.id
+  => 1
+  >> Pizza.find(1)
+  => #<Pizza...
+  >> Pizza.create(:title => "Hawaii", :crusty => true) 
+  => #<Pizza...
+  >> Pizza.count
+  => 2
+  >> Pizza.all # afkorting voor Pizza.find(:all)
+  => [#<Pizza.., #<Pizza...]
+  >> Pizza.all(:conditions => "title LIKE '%cheese%'")
+  => [#<Pizza...]
+  $ script/dbconsole
+  > select * from pizzas;
+  1..
+  2..
+
+  Opdracht (10 minuten):
+    Maak een price methode aan op de model Pizza en 
+    deze berekent returneert het aantal karakters van title. 
+    Dus hoe meer karakters, hoe duurder de pizza.
+    Hint: size of length geeft het aantal karanters in een string
+
+  $ script/console
+  >> Pizza.all.each { |pizza| puts "#{pizza.title}: #{pizza.price} euro's" }; nil
+  4 cheese: 8
+  Hawaii: 6
+  => nil
+
+# STAP 2: Weergeven pizzas; View en Controller (15 minuten)
+  $ script/generate controller welcome index
+  $ script/server &
+  $ open http://localhost:3000
+  $ open http://localhost:3000/welcome
+  $ vi app/views/welcome/index.html.erb
+  + <ul>
+  +   <% Pizza.all.each do |pizza| %>
+  +     <li>
+  +       <%= pizza.title %>
+  +     </li>
+  +   <% end %>
+  + </ul>
+  $ open http://localhost:3000/welcome
+  $ vi app/controllers/welcome_controller.rb
+  + def index
+  +   @pizzas = Pizza.all
+  + end
+  $ vi app/views/welcome/index.html.erb
+  - <% Pizza.all.each do |pizza| %>
+  + <% @pizzas.each do |pizza| %>
+  $ open http://localhost:3000/welcome
+
+  Opdracht (10 minuten)
+    Laat alleen de 3 nieuwste pizza's zien
+    Hint: :limit en :order
+
+# STAP 3: Helpers, h, number_to_current, Helper modules
+  $ script/console
+  >> Pizza.find(1).update_attribute(:title, "<span style='font-size:200%;background:red'>4 cheese</span>")
+  $ open http://localhost:3000/welcome
+  
+  $ vi app/views/welcome/pizza.html.erb
+  + <%= h(pizza.title) %>
+  $ open http://localhost:3000/welcome
+  
+  - <%= h(pizza.title) %>
+  + <%= h(truncate(pizza.pizza)) %>
+  $ open http://localhost:3000/welcome
+  
+  $ vi app/views/welcome/pizza.html.erb
+  + <%= number_to_currency(pizza.price) %>
+  $ open http://localhost:3000/welcome
+
+  $ vi app/views/welcome/pizza.html.erb
+  - <%= number_to_currency(pizza.price) %>
+  + <%= number_to_currency(pizza.price, :unit => '&euro;') %>
+  $ open http://localhost:3000/welcome
+
+  $ vi app/views/welcome/pizza.html.erb
+  + <% if pizza.created_at > 10.minutes.ago %>
+  +   <strong>NIEUW!</strong>
+  + <% end %>
+  $ open http://localhost:3000/welcome
+  
+  $ script/console
+  >> Pizza.find(1).update_attribute(:title, "4 cheese")
+  >> Pizza.create(:title => "Shoarma")
+  $ open http://localhost:3000/welcome
+  
+  $ vi app/helpers/welcome_helper.rb
+  + def pizza_title(pizza)
+  +   ret = ""
+  +   ret = '<strong>NIEUW!</strong>' if pizza.created_at > 10.minutes.ago
+  +   ret += h(truncate(pizza.title))
+  +   ret
+  + end
+  $ vi app/views/welcome/pizza.html.erb
+  - <%= h(truncate(pizza)) %>
+  + <%= pizza_title(pizza) %>
+  - <% if pizza.created_at > 10.minutes.ago %>
+  -   <strong>NIEUW!</strong>
+  - <% end %>
+  $ open http://localhost:3000/welcome
+
+  Opdracht (10 minuten):
+    Maak een currency methode in ApplicationHelper welke gebruik 
+    maakt van number_to_currency om de nederlandse valuta te gebruiken
+
+# STAP 4: Scaffold pizzas; routing en parameters (20 minutes)
+  $ script/generate scaffold pizza title:string crusty:boolean
+  $ open http://localhost:3000/pizzas
+  $ vi app/controllers/pizzas_controller.rb
+  $ vi config/routes.rb
+
+  Opdracht (10 minuten):
+    Creeer een show methode voor welcome controller om alle 
+    informatie over de pizza te laten zien.
+    Maak van de titels in de welcome index pagina links naar de show methode.
+    Hint: PizzasController laat een hoop zien van Rails
+
+# STAP 5: Pizza validaties (5 minuten)
+  $ vi app/models/pizza.rb
+  + validates_presence_of :title
+  $ open http://localhost:3000/pizzas/new
+
+  Opdracht (10 minuten):
+    Zorg ervoor dat te pizza title niet langer mag zijn dan 200 karakters
+    Hint: http://api.rubyonrails.com en zoek op "validates"
+
+# STAP 6: Pizza eigendom; associations
+  $ script/generate model person email:string firstname:string lastname:string password_hash:string
+  $ script/generate migration add_person_id_to_pizzas person_id:integer
+  $ rake db:migrate
+  
+  $ vi app/models/pizza.rb
+  + belongs_to :person
+  $ script/console
+  >> larry = Person.create(:email => 'larry@wall.net', :firstname => 'Larry', :lastname => 'Wall')
+  => #<Person...
+  >> cheese = Pizza.find_by_title("4 cheese")
+  => #<Pizza
+  >> cheese.person
+  => nil
+  >> cheese.person = larry
+  => #<Pizza
+  >> cheese.save
+  => true
+  >> larry.pizzas
+  NoMethodError: undefined method 'pizzas' for #<Person...
+  $ vi app/models/person.rb
+  + has_many :pizzas
+  + validates_presence_of :email
+  + validates_uniqueness_of :email
+  $ script/console
+  >> larry = Person.find_by_firstname('Larry')
+  => #<Person...
+  >> larry.pizzas
+  [#<Pizza...]
+
+  Opdracht (20 minuten):
+    Geef personen een geassocieerde adres (street, city, county).
+    Hint: person.has_one en address.belongs_to 
+
+## rewrite login controller to session controller to be restfull 
+# STAP 7: Login; class methodes, sessies 
+  $ vi app/models/person.rb
+  + def password=(password)
+  +   self.password_hash = Digest::MD5.hexdigest(password)
+  + end
+  $ ./script/console 
+  >> larry = Person.find_by_firstname('Larry')
+  => #<Person...
+  >> larry.update_attribute(:password, 'I love Ruby')
+  => true
+  >> larry.password_hash
+  => "889047e460ab18b50598a777527008ad"
+  $ vi app/models/person.rb
+  + def self.authenticate(email, password)
+  +   first(:conditions => {:email => email, :password_hash => Digest::MD5.hexdigest(password)})
+  + end
+  $ ./script/console
+  >> Person.authenticate('larry@wall.net', 'Perl rules!')
+  => nil
+  >> Person.authenticate('larry@wall.net', 'I love Ruby')
+  => #<Person...
+  $ ./script/generate controller sessions new
+  $ vi config/routes.rb
+  + map.logout '/logout', :controller => 'sessions', :action => 'destroy'
+  + map.login '/login', :controller => 'sessions', :action => 'new'
+  + map.resource :session
+
+  $ vi app/views/sessions/new.html.erb
+  + <h2>Login</h2>
+  + <% form_tag session_path do %>
+  +   <p>
+  +     <label>E-Mail</label>
+  +     <%= text_field_tag :email, params[:email] %>
+  +   </p>
+  +   <p>
+  +     <label>Password</label>
+  +     <%= password_field_tag :password, '' %>
+  +   </p>
+  +   <p>
+  +     <%= submit_tag 'Login' %>
+  +   </p>
+  + <% end %>
+  $ open http://localhost:3000/login
+  $ vi app/controllers/sessions_controller.rb
+  + def create
+  +   if person = Person.authenticate(params[:email], params[:password])
+  +     session[:login] = person.id
+  +     redirect_to :controller => 'welcome'
+  +   else
+  +     render :action => 'new'
+  +   end
+  + end
+  $ vi app/controllers/sessions_controller.rb
+  + protected
+  +   def current_user
+  +     session[:login] && Person.find(session[:login])
+  +   end
+  +   helper_method :current_user
+  $ vi app/views/sessions/status.html.erb
+  + <% if current_user %>
+  +   Current user:
+  +   <%=h current_user.firstname %>
+  +   <%=h current_user.lastname %>
+  + <% else %>
+  +   Nobody logged in.
+  + <% end %>
+  $ open http://localhost:3000/sessions/status
+
+
+# STAP 8: Meer logging in; layouts, assets, application_controller.rb, filters
+  $ vi app/views/layouts/application.html.erb
+  + <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  + 	"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+  + 
+  + <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+  + 	<head>
+  + 	  <title>InHolland's Pizzeria</title>
+  +     <%= stylesheet_link_tag "application" %>
+  + 	</head>
+  +   <body>
+  +     <div id="header">
+  +       <div id="header_title">InHolland's Pizzeria</div>
+  +       <div class="nav">
+  +         <ul>
+  +           <li><%= link_to "Pizzas", pizzas_path %></li>
+  +         </ul>
+  +       </div>
+  +     </div>
+  +     <div id="content">
+  +       <%= yield %>
+  +     </div>
+  +     <div id="footer">
+  +       pre-alpha-version
+  +     </div>
+  +   </body>
+  + </html>
+  
+  $ vi app/controllers/application_controller.rb
+  + protected
+  +   def current_user
+  +     session[:login] && Person.find(session[:login])
+  +   end
+  +   helper_method :current_user
+
+  $ vi app/controllers/sessions_controller.rb  + protected
+  -   def current_user
+  -     session[:login] && Person.find(session[:login])
+  -   end
+  -   helper_method :current_user
+
+  $ vi app/views/layouts/application.html.erb
+  + <div id="login">
+  +   <% if current_user %>
+  +     Hello <%=h current_user.firstname %>!
+  +     <%= link_to 'logout', logout_path %>
+  +   <% else %>
+  +     <%= link_to 'login', login_path %>
+  +   <% end %>
+  + </div>
+
+  $ vi public/stylesheets/application.css
+  + body, ul, li 				{ margin: 0; padding: 0; }
+  + body 								{ font-family: Verdana; font-size: 12px; background-color: #f5e7d0; letter-spacing: 0.04em; }
+  + #header 						{ border-bottom: solid 1px #a1a1a1; padding: 10px; }
+  + #header_title				{ font-size: 24px; color: #ffcb8d; text-shadow: #f00 2px 2px 0px;	font-weight: bold; }
+  + .nav								{ margin-left: 20px; }
+  + .nav ul li 					{ display: inline-block; }
+  + .nav ul li a 				{ text-transform: uppercase; text-decoration: none; color: #222; padding-right: 10px; }
+  + .nav ul li a:hover 	{ text-decoration: underline; }
+  + #content 						{ padding: 10px 30px; background-color: white; }
+  + #footer 						{ border-top: solid 1px #a1a1a1; text-align: center; }
+
+  Opdracht: (10 minuten)
+    Voeg een link toe voor ingelogde gebruikers om nieuwe pizza's toe te voegen.
+    Hint: "$ rake routes" geeft je een overzicht van al je routeringen (gebruik grep
+          om te filteren: $ rake routes | grep new)
+
+# STAP 9: Code cleanup; partials
+  $ vi app/views/pizzas/new.html.erb
+  - <%= f.error_messages %>
+  - 
+  - <p>
+  -   <%= f.label :title %><br />
+  -   <%= f.text_field :title %>
+  - </p>
+  - <p>
+  -   <%= f.label :crusty %><br />
+  -   <%= f.check_box :crusty %>
+  - </p>
+  - <p>
+  -   <%= f.submit 'Update' %>
+  - </p>
+  +   <%= render :partial => "form", :locals => { :f => f } %>
+
+  $ vi app/views/pizza/_form.html.erb
+  + <%= f.error_messages %>
+  + 
+  + <p>
+  +   <%= f.label :title %><br />
+  +   <%= f.text_field :title %>
+  + </p>
+  + <p>
+  +   <%= f.label :crusty %><br />
+  +   <%= f.check_box :crusty %>
+  + </p>
+  + <p>
+  +   <%= f.submit 'Update' %>
+  + </p>
+
+  Opdracht: (5 minuten)
+    Vervang de content van de edit pizza pagina met de partial
+
+
+# STAP 10: Toppings; association methodes
+  # creeer toppings
+  $ script/generate scaffold topping title:string
+  
+  # creeer een tussen model voor toppings en pizzas zodat je kan aangeven welke toppings op een pizza moeten
+  $ script/generate model pizza_topping pizza_id:integer topping_id:integer
+  
+  # (optioneel) creeer een index voor mysql op de pizza_toppings tabel, voor de database puristen
+  $ vi db/migrate/timestamp_create_pizza_toppings.rb
+  + add_index :pizza_toppings, [:pizza_id, :topping_id]
+  
+  # maak de connecties tussen de models pizza, pizza_topping, topping
+  $ vi app/models/pizza.rb
+  + has_many :pizza_toppings
+  + has_maby :toppings, :through => :pizza_toppings
+  
+  $ vi app/models/pizza_topping.rb
+  + belongs_to :pizza
+  + belongs_to :topping
+  
+  $ vi app/models/topping.rb
+  + has_many :pizza_toppings
+  + has_many :pizzas, :through => :pizza_toppings
+  
+  # voeg wat toppings toe
+  $ script/console
+  >> Topping.create(:title => "Extra Cheese")
+  >> Topping.create(:title => "Pepperoni")
+  >> Topping.create(:title => "Pineapple")
+  >> Topping.create(:title => "Mushrooms")
+  
+  # pas de partial aan voor het wijzigen van pizza's om de toppings toe te voegen
+  $ vi app/views/pizzas/_form.html.erb
+  + <h3>Toppings</h3>
+  + <% Topping.all.each do |topping| %>
+  +   <%= check_box_tag 'pizza[topping_ids][]', topping.id, @pizza.toppings.include?(topping) %>
+  +   <%=h topping.title %><br />
+  + <% end %>
+ 
+  $ open http://localhost:3000/pizzas/1/edit
+  # zie dat wanneer je alle toppings er weer vanaf haalt, 
+  # dat rails de toppings niet verwijdert!!!
+  # Dit komt omdat checkboxes alleen worden meegestuurd 
+  # met de parameters als deze gevuld zijn. 
+  # Simpele hack hiervoor is hetzelfde wat rails al standaard met 
+  # checkboxes uitvoert (kijk maar naar de crispy checkbox in de html code)
+  $ curl http://localhost:3000/pizzas/1/edit
+  
+  # pas de 'hack' toe
+  $ vi app/views/pizzas/_form.html.erb
+  + <%= hidden_field_tag 'pizza[topping_ids][]' %>
+  
+  Opdracht (20 minuten):
+    Laat op de welkomst pagina alle toppings zien die bij de desbetreffende pizza horen
+    Hint: pizza.toppings.each  
+
+# STAP 11: zorg ervoor dat de gebruiker ingelogd is: before_filter, flash
+  $ vi app/controllers/pizzas_controller.rb
+  + before_filter :ensure_login
+  
+  $ vi app/controllers/application_controller.rb
+  + protected
+  + 	def ensure_login
+  + 	  unless current_user
+  + 	    flash[:notice] = 'You should login for this operation!'
+  + 	    redirect_to login_path 
+  + 	  end
+  + 	end
+
+  $ vi app/views/layouts/application.html.erb
+  + <% if flash[:notice] %>
+  +   <div id="flash_notice"><%=h flash[:notice] %></div>
+  + <% end %>
+  
+  $ vi public/stylesheets/application.css
+  + #flash_notice { font-size: 125%; font-style: italic; padding: 10px; border: solid 1px #f5e7d0; }
+
+  Opdracht (20 minuten)
+    Zorg ervoor dat gebruikers voor alle handelingen moeten 
+    inloggen behalve voor welcome controller en login controller.
+    Gebruik flash in de login controller om de gebruiker te groeten wanneer deze inlogt.
+    Gebruik flash.now wanneer de login is gefaalt.
+    Hint: skip_before_filter
+
+# STAP 12: routing
+  $ rm public/index.html
+  $ open http://localhost:3000/
+
+  $ vi config/routes.rb
+  + map.root :controller => "welcome"
+  $ open http://localhost:3000/
+
+  $ vi config/routes.rb
+  + map.connect 'show/:id', :controller => "welcome", :action => 'show'
+  $ open http://localhost:3000/show/1
+
+  $ vi config/routes.rb
+  - map.connect 'show/:id', :controller => "welcome", :action => 'show'
+  + map.connect ':id', :controller => "welcome", :action => 'show'
+  $ open http://localhost:3000/1
+  $ open http://localhost:3000/login
+
+  $ vi config/routes.rb
+  - map.connect ':id', :controller => "welcome", :action => 'show'
+  + map.connect ':id', :controller => "welcome", :action => 'show', :id => /\d+/
+  $ open http://localhost:3000/1
+  $ open http://localhost:3000/login
+
